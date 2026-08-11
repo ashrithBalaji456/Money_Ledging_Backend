@@ -11,10 +11,10 @@ import java.util.List;
 @Repository
 public interface BorrowerRepository extends JpaRepository<Borrower, Long> {
     
-    List<Borrower> findByActiveTrue();
+    List<Borrower> findByActiveTrueAndUserId(Long userId);
     
-    @Query("SELECT b FROM Borrower b WHERE b.active = true AND " +
+    @Query("SELECT b FROM Borrower b WHERE b.active = true AND b.user.id = :userId AND " +
            "(LOWER(b.fullName) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
            "b.phoneNumber LIKE CONCAT('%', :query, '%'))")
-    List<Borrower> searchActiveBorrowers(@Param("query") String query);
+    List<Borrower> searchActiveBorrowers(@Param("query") String query, @Param("userId") Long userId);
 }

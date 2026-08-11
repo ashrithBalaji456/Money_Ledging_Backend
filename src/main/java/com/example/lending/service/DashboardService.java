@@ -10,6 +10,8 @@ import com.example.lending.repository.PaymentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.example.lending.entity.User;
+import com.example.lending.repository.UserRepository;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -21,10 +23,19 @@ public class DashboardService {
 
     private final LoanRepository loanRepository;
     private final PaymentRepository paymentRepository;
+    private final UserRepository userRepository;
+
+    private User getCurrentUser() {
+        String username = org.springframework.security.core.context.SecurityContextHolder.getContext()
+                .getAuthentication().getName();
+        return userRepository.findByUsername(username)
+                .orElseThrow(() -> new org.springframework.security.core.userdetails.UsernameNotFoundException("User not found: " + username));
+    }
 
     @Transactional(readOnly = true)
     public DashboardSummaryDTO getDashboardSummary() {
-        List<Loan> allLoans = loanRepository.findAllWithActiveBorrowers();
+        User currentUser = getCurrentUser();
+        List<Loan> allLoans = loanRepository.findAllWithActiveBorrowers(currentUser.getId());
         LocalDate today = LocalDate.now();
         LocalDate threeDaysLater = today.plusDays(3);
 
@@ -50,11 +61,11 @@ public class DashboardService {
         }
 
         // Calculate due soon count (unpaid and due in next 3 days)
-        List<Payment> dueSoonPayments = paymentRepository.findPaymentsDueSoon(today, threeDaysLater);
+        List<Payment> dueSoonPayments = paymentRepository.findPaymentsDueSoon(today, threeDaysLater, currentUser.getId());
         long dueSoonCount = dueSoonPayments.size();
 
         // Calculate overdue count (unpaid and due date passed)
-        List<Payment> overduePayments = paymentRepository.findOverduePayments(today);
+        List<Payment> overduePayments = paymentRepository.findOverduePayments(today, currentUser.getId());
         long overdueCount = overduePayments.size();
 
         return DashboardSummaryDTO.builder()

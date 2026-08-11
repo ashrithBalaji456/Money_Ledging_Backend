@@ -16,19 +16,19 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     
     // Find all unpaid payments that are overdue (dueDate < date)
     @Query("SELECT p FROM Payment p JOIN FETCH p.loan l JOIN FETCH l.borrower b " +
-           "WHERE b.active = true AND p.dueDate < :date AND p.paidAmount < p.expectedAmount " +
+           "WHERE b.active = true AND b.user.id = :userId AND p.dueDate < :date AND p.paidAmount < p.expectedAmount " +
            "ORDER BY p.dueDate ASC")
-    List<Payment> findOverduePayments(@Param("date") LocalDate date);
+    List<Payment> findOverduePayments(@Param("date") LocalDate date, @Param("userId") Long userId);
     
     // Find all unpaid payments due between date and date + 3 days (inclusive)
     @Query("SELECT p FROM Payment p JOIN FETCH p.loan l JOIN FETCH l.borrower b " +
-           "WHERE b.active = true AND p.dueDate >= :startDate AND p.dueDate <= :endDate AND p.paidAmount < p.expectedAmount " +
+           "WHERE b.active = true AND b.user.id = :userId AND p.dueDate >= :startDate AND p.dueDate <= :endDate AND p.paidAmount < p.expectedAmount " +
            "ORDER BY p.dueDate ASC")
-    List<Payment> findPaymentsDueSoon(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+    List<Payment> findPaymentsDueSoon(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, @Param("userId") Long userId);
     
     // Find recent payments (paidDate is not null, ordered by paidDate DESC)
     @Query("SELECT p FROM Payment p JOIN FETCH p.loan l JOIN FETCH l.borrower b " +
-           "WHERE b.active = true AND p.paidDate IS NOT NULL " +
+           "WHERE b.active = true AND b.user.id = :userId AND p.paidDate IS NOT NULL " +
            "ORDER BY p.paidDate DESC, p.updatedAt DESC")
-    List<Payment> findRecentPayments();
+    List<Payment> findRecentPayments(@Param("userId") Long userId);
 }

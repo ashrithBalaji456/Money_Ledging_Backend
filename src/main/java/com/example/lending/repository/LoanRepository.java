@@ -11,8 +11,8 @@ import java.util.List;
 @Repository
 public interface LoanRepository extends JpaRepository<Loan, Long> {
     
-    @Query("SELECT l FROM Loan l JOIN FETCH l.borrower b WHERE b.active = true")
-    List<Loan> findAllWithActiveBorrowers();
+    @Query("SELECT l FROM Loan l JOIN FETCH l.borrower b WHERE b.active = true AND b.user.id = :userId")
+    List<Loan> findAllWithActiveBorrowers(@org.springframework.data.repository.query.Param("userId") Long userId);
     
     List<Loan> findByBorrowerId(Long borrowerId);
     

@@ -39,5 +39,16 @@ public class AdminUserSeeder implements CommandLineRunner {
         } else {
             log.info("Admin user already exists in database");
         }
+
+        // Assign any existing borrowers with null user_id to the admin user
+        try {
+            User admin = userRepository.findByUsername("admin").orElse(null);
+            if (admin != null) {
+                jdbcTemplate.update("UPDATE borrowers SET user_id = ? WHERE user_id IS NULL", admin.getId());
+                log.info("Assigned existing ownerless borrowers to the admin user.");
+            }
+        } catch (Exception e) {
+            log.warn("Could not update ownerless borrowers: {}", e.getMessage());
+        }
     }
 }

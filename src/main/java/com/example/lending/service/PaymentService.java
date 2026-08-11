@@ -11,6 +11,9 @@ import com.example.lending.exception.ResourceNotFoundException;
 import com.example.lending.repository.LoanRepository;
 import com.example.lending.repository.PaymentRepository;
 import lombok.RequiredArgsConstructor;
+import com.example.lending.entity.User;
+import com.example.lending.repository.UserRepository;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,13 +26,28 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final LoanRepository loanRepository;
+    private final UserRepository userRepository;
+
+    private User getCurrentUser() {
+        String username = org.springframework.security.core.context.SecurityContextHolder.getContext()
+                .getAuthentication().getName();
+        return userRepository.findByUsername(username)
+                .orElseThrow(() -> new org.springframework.security.core.userdetails.UsernameNotFoundException("User not found: " + username));
+    }
 
     @Transactional(readOnly = true)
     public List<PaymentDTO> getPaymentsByLoanId(Long loanId) {
+        User currentUser = getCurrentUser();
+        Loan loan = loanRepository.findById(loanId)
+                .orElseThrow(() -> new ResourceNotFoundException("Loan not found with id: " + loanId));
+        if (loan.getBorrower().getUser() == null || !loan.getBorrower().getUser().getId().equals(currentUser.getId())) {
+            throw new AccessDeniedException("Access denied to view payments for loan: " + loanId);
+        }
         return paymentRepository.findByLoanIdOrderByInstallmentNumberAsc(loanId).stream()
                 .map(this::mapToDTO)
                 .collect(Collectors.toList());
@@ -37,39 +55,51 @@ public class PaymentService {
 
     @Transactional(readOnly = true)
     public PaymentDTO getPaymentById(Long id) {
+        User currentUser = getCurrentUser();
         Payment payment = paymentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Payment installment not found with id: " + id));
+        if (payment.getLoan().getBorrower().getUser() == null || !payment.getLoan().getBorrower().getUser().getId().equals(currentUser.getId())) {
+            throw new AccessDeniedException("Access denied to view payment installment: " + id);
+        }
         return mapToDTO(payment);
     }
 
     @Transactional(readOnly = true)
     public List<PaymentDTO> getDueSoonPayments() {
+        User currentUser = getCurrentUser();
         LocalDate today = LocalDate.now();
         LocalDate threeDaysLater = today.plusDays(3);
-        return paymentRepository.findPaymentsDueSoon(today, threeDaysLater).stream()
+        return paymentRepository.findPaymentsDueSoon(today, threeDaysLater, currentUser.getId()).stream()
                 .map(this::mapToDTO)
                 .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public List<PaymentDTO> getOverduePayments() {
+        User currentUser = getCurrentUser();
         LocalDate today = LocalDate.now();
-        return paymentRepository.findOverduePayments(today).stream()
+        return paymentRepository.findOverduePayments(today, currentUser.getId()).stream()
                 .map(this::mapToDTO)
                 .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public List<PaymentDTO> getRecentPayments() {
-        return paymentRepository.findRecentPayments().stream()
+        User currentUser = getCurrentUser();
+        return paymentRepository.findRecentPayments(currentUser.getId()).stream()
                 .map(this::mapToDTO)
                 .collect(Collectors.toList());
     }
 
     @Transactional
     public PaymentDTO recordPayment(Long id, PaymentRecordRequest request) {
+        User currentUser = getCurrentUser();
         Payment payment = paymentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Payment installment not found with id: " + id));
+
+        if (payment.getLoan().getBorrower().getUser() == null || !payment.getLoan().getBorrower().getUser().getId().equals(currentUser.getId())) {
+            throw new AccessDeniedException("Access denied to record payment for installment: " + id);
+        }
 
         BigDecimal remainingExpected = payment.getExpectedAmount().subtract(payment.getPaidAmount());
         if (remainingExpected.compareTo(BigDecimal.ZERO) <= 0) {
@@ -87,8 +117,13 @@ public class PaymentService {
 
     @Transactional
     public PaymentDTO recordPartialPayment(Long id, PaymentRecordRequest request) {
+        User currentUser = getCurrentUser();
         Payment payment = paymentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Payment installment not found with id: " + id));
+
+        if (payment.getLoan().getBorrower().getUser() == null || !payment.getLoan().getBorrower().getUser().getId().equals(currentUser.getId())) {
+            throw new AccessDeniedException("Access denied to record partial payment for installment: " + id);
+        }
 
         BigDecimal remainingExpected = payment.getExpectedAmount().subtract(payment.getPaidAmount());
         if (remainingExpected.compareTo(BigDecimal.ZERO) <= 0) {

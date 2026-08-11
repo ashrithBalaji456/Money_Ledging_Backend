@@ -12,6 +12,9 @@ import com.example.lending.exception.ResourceNotFoundException;
 import com.example.lending.repository.BorrowerRepository;
 import com.example.lending.repository.LoanRepository;
 import com.example.lending.repository.PaymentRepository;
+import com.example.lending.entity.User;
+import com.example.lending.repository.UserRepository;
+import org.springframework.security.access.AccessDeniedException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,17 +27,31 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class LoanService {
 
     private final LoanRepository loanRepository;
     private final BorrowerRepository borrowerRepository;
     private final PaymentRepository paymentRepository;
     private final InterestCalculationService interestCalculationService;
+    private final UserRepository userRepository;
+
+    private User getCurrentUser() {
+        String username = org.springframework.security.core.context.SecurityContextHolder.getContext()
+                .getAuthentication().getName();
+        return userRepository.findByUsername(username)
+                .orElseThrow(() -> new org.springframework.security.core.userdetails.UsernameNotFoundException("User not found: " + username));
+    }
 
     @Transactional
     public LoanDTO createLoan(LoanCreationRequest request) {
+        User currentUser = getCurrentUser();
         Borrower borrower = borrowerRepository.findById(request.getBorrowerId())
                 .orElseThrow(() -> new ResourceNotFoundException("Borrower not found with id: " + request.getBorrowerId()));
+
+        if (borrower.getUser() == null || !borrower.getUser().getId().equals(currentUser.getId())) {
+            throw new AccessDeniedException("Access denied to create loan for borrower: " + request.getBorrowerId());
+        }
 
         BigDecimal interestAmount;
         BigDecimal totalPayable;
@@ -154,24 +171,33 @@ public class LoanService {
 
     @Transactional(readOnly = true)
     public List<LoanDTO> getLoans(LoanStatus status) {
-        List<Loan> loans;
-        if (status == null) {
-            loans = loanRepository.findAll();
-        } else {
-            loans = loanRepository.findByStatus(status);
+        User currentUser = getCurrentUser();
+        List<Loan> loans = loanRepository.findAllWithActiveBorrowers(currentUser.getId());
+        if (status != null) {
+            loans = loans.stream().filter(l -> l.getStatus() == status).collect(Collectors.toList());
         }
         return loans.stream().map(this::mapToDTO).collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public LoanDTO getLoanById(Long id) {
+        User currentUser = getCurrentUser();
         Loan loan = loanRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Loan not found with id: " + id));
+        if (loan.getBorrower().getUser() == null || !loan.getBorrower().getUser().getId().equals(currentUser.getId())) {
+            throw new AccessDeniedException("Access denied to view loan: " + id);
+        }
         return mapToDTO(loan);
     }
 
     @Transactional(readOnly = true)
     public List<LoanDTO> getLoansByBorrowerId(Long borrowerId) {
+        User currentUser = getCurrentUser();
+        Borrower borrower = borrowerRepository.findById(borrowerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Borrower not found with id: " + borrowerId));
+        if (borrower.getUser() == null || !borrower.getUser().getId().equals(currentUser.getId())) {
+            throw new AccessDeniedException("Access denied to view loans for borrower: " + borrowerId);
+        }
         return loanRepository.findByBorrowerId(borrowerId).stream()
                 .map(this::mapToDTO)
                 .collect(Collectors.toList());
