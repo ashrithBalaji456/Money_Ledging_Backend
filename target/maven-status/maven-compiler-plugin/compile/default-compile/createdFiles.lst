@@ -4,6 +4,7 @@ com\example\lending\service\DashboardService.class
 com\example\lending\dto\DashboardSummaryDTO.class
 com\example\lending\controller\LoanController.class
 com\example\lending\dto\LoanDTO.class
+com\example\lending\controller\HealthController.class
 com\example\lending\dto\LoginRequest.class
 com\example\lending\dto\LoanCreationRequest.class
 com\example\lending\config\OpenApiConfig.class
