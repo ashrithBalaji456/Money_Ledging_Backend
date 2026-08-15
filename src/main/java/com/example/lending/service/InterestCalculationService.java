@@ -53,4 +53,34 @@ public class InterestCalculationService {
 
         return new CalculationResult(interestAmount, totalPayable, monthlyInstallment);
     }
+
+    public CalculationResult calculateInterestOnly(
+            BigDecimal principal,
+            BigDecimal rate,
+            InterestRateType rateType,
+            int durationInMonths
+    ) {
+        if (principal == null || rate == null || rateType == null || durationInMonths <= 0) {
+            throw new IllegalArgumentException("Invalid arguments for interest calculation");
+        }
+
+        BigDecimal duration = BigDecimal.valueOf(durationInMonths);
+        BigDecimal monthlyInterest;
+
+        if (rateType == InterestRateType.ANNUAL) {
+            // Monthly Interest = Principal * (Rate / 12 / 100)
+            BigDecimal rateFactor = rate.divide(BigDecimal.valueOf(1200), 8, RoundingMode.HALF_UP);
+            monthlyInterest = principal.multiply(rateFactor).setScale(2, RoundingMode.HALF_UP);
+        } else {
+            // Monthly Interest = Principal * (Rate / 100)
+            BigDecimal rateFactor = rate.divide(BigDecimal.valueOf(100), 8, RoundingMode.HALF_UP);
+            monthlyInterest = principal.multiply(rateFactor).setScale(2, RoundingMode.HALF_UP);
+        }
+
+        BigDecimal interestAmount = monthlyInterest.multiply(duration).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal totalPayable = principal.add(interestAmount).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal monthlyInstallment = monthlyInterest; // Monthly installment is just the interest portion
+
+        return new CalculationResult(interestAmount, totalPayable, monthlyInstallment);
+    }
 }

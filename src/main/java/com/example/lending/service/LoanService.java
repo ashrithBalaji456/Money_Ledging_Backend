@@ -69,6 +69,16 @@ public class LoanService {
             if (rateTypeVal == null) {
                 rateTypeVal = com.example.lending.entity.InterestRateType.ANNUAL;
             }
+        } else if (request.getInterestType() == com.example.lending.entity.InterestType.INTEREST_ONLY) {
+            InterestCalculationService.CalculationResult calc = interestCalculationService.calculateInterestOnly(
+                    request.getPrincipalAmount(),
+                    request.getInterestRate(),
+                    request.getInterestRateType(),
+                    request.getDurationInMonths()
+            );
+            interestAmount = calc.interestAmount;
+            totalPayable = calc.totalPayable;
+            monthlyInstallment = calc.monthlyInstallment;
         } else {
             InterestCalculationService.CalculationResult calc = interestCalculationService.calculateSimpleInterest(
                     request.getPrincipalAmount(),
@@ -149,6 +159,16 @@ public class LoanService {
             interestAmount = request.getCustomInterestAmount() != null ? request.getCustomInterestAmount() : BigDecimal.ZERO;
             totalPayable = request.getPrincipalAmount().add(interestAmount);
             monthlyInstallment = totalPayable.divide(BigDecimal.valueOf(request.getDurationInMonths()), 2, java.math.RoundingMode.HALF_UP);
+        } else if (request.getInterestType() == com.example.lending.entity.InterestType.INTEREST_ONLY) {
+            InterestCalculationService.CalculationResult calc = interestCalculationService.calculateInterestOnly(
+                    request.getPrincipalAmount(),
+                    request.getInterestRate(),
+                    request.getInterestRateType(),
+                    request.getDurationInMonths()
+            );
+            interestAmount = calc.interestAmount;
+            totalPayable = calc.totalPayable;
+            monthlyInstallment = calc.monthlyInstallment;
         } else {
             InterestCalculationService.CalculationResult calc = interestCalculationService.calculateSimpleInterest(
                     request.getPrincipalAmount(),
