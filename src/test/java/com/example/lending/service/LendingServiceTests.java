@@ -30,12 +30,22 @@ class LendingServiceTests {
     @Mock
     private LoanRepository loanRepository;
 
+    @Mock
+    private com.example.lending.repository.UserRepository userRepository;
+
     @InjectMocks
     private PaymentService paymentService;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
+        User mockUser = User.builder().id(1L).username("testuser").build();
+        org.springframework.security.core.Authentication auth = mock(org.springframework.security.core.Authentication.class);
+        when(auth.getName()).thenReturn("testuser");
+        org.springframework.security.core.context.SecurityContext context = mock(org.springframework.security.core.context.SecurityContext.class);
+        when(context.getAuthentication()).thenReturn(auth);
+        org.springframework.security.core.context.SecurityContextHolder.setContext(context);
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(mockUser));
     }
 
     @Test
@@ -128,7 +138,8 @@ class LendingServiceTests {
     @Test
     void testRecordPaymentOperation() {
         LocalDate today = LocalDate.now();
-        Borrower borrower = Borrower.builder().id(1L).fullName("Ramesh").active(true).build();
+        User testUser = User.builder().id(1L).username("testuser").build();
+        Borrower borrower = Borrower.builder().id(1L).fullName("Ramesh").active(true).user(testUser).build();
         Loan loan = Loan.builder()
                 .id(1L)
                 .borrower(borrower)
