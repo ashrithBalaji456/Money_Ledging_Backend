@@ -116,16 +116,20 @@ public class AuthController {
                         .body(Collections.singletonMap("message", "Could not verify Google authentication token"));
             }
 
-            // Find or create user by email
+            // Find or link user by email or username prefix (case-insensitive)
             final String userEmail = email.trim().toLowerCase();
-            User user = userRepository.findByUsername(userEmail).orElseGet(() -> {
-                User newUser = User.builder()
-                        .username(userEmail)
-                        .password(passwordEncoder.encode(UUID.randomUUID().toString()))
-                        .role("ADMIN") // Default to ADMIN for ledger management
-                        .build();
-                return userRepository.save(newUser);
-            });
+            String emailPrefix = userEmail.contains("@") ? userEmail.substring(0, userEmail.indexOf('@')) : userEmail;
+
+            User user = userRepository.findByUsernameIgnoreCase(userEmail)
+                    .or(() -> userRepository.findByUsernameIgnoreCase(emailPrefix))
+                    .orElseGet(() -> {
+                        User newUser = User.builder()
+                                .username(userEmail)
+                                .password(passwordEncoder.encode(UUID.randomUUID().toString()))
+                                .role("ADMIN") // Default to ADMIN for ledger management
+                                .build();
+                        return userRepository.save(newUser);
+                    });
 
             String token = jwtTokenProvider.generateToken(user.getUsername());
             return ResponseEntity.ok(new LoginResponse(token, user.getUsername(), user.getRole()));
