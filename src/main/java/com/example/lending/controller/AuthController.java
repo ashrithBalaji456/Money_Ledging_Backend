@@ -91,7 +91,22 @@ public class AuthController {
                 if (response != null) {
                     String aud = (String) response.get("aud");
                     if (configuredGoogleClientId != null && !configuredGoogleClientId.trim().isEmpty()) {
-                        if (!configuredGoogleClientId.trim().equals(aud)) {
+                        String[] allowedClients = configuredGoogleClientId.split(",");
+                        boolean match = false;
+                        for (String allowed : allowedClients) {
+                            if (allowed.trim().equals(aud)) {
+                                match = true;
+                                break;
+                            }
+                        }
+                        // Also allow Android/Web client IDs sharing the same Google Cloud Project ID prefix
+                        if (!match && aud != null && configuredGoogleClientId.contains("-")) {
+                            String projectPrefix = configuredGoogleClientId.substring(0, configuredGoogleClientId.indexOf('-')).trim();
+                            if (!projectPrefix.isEmpty() && aud.startsWith(projectPrefix)) {
+                                match = true;
+                            }
+                        }
+                        if (!match) {
                             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                                     .body(Collections.singletonMap("message", "Invalid Google Client ID audience"));
                         }
