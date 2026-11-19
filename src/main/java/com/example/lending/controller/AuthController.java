@@ -83,10 +83,13 @@ public class AuthController {
     public ResponseEntity<?> googleLogin(@RequestBody GoogleAuthRequest request) {
         String email = null;
 
+        String idToken = request.resolveIdToken();
+        String accessToken = request.resolveAccessToken();
+
         try {
             // 1. Verify via ID Token if provided
-            if (request.getIdToken() != null && !request.getIdToken().trim().isEmpty()) {
-                String verifyUrl = "https://oauth2.googleapis.com/tokeninfo?id_token=" + request.getIdToken().trim();
+            if (idToken != null && !idToken.isEmpty()) {
+                String verifyUrl = "https://oauth2.googleapis.com/tokeninfo?id_token=" + idToken;
                 Map<?, ?> response = restTemplate.getForObject(verifyUrl, Map.class);
                 if (response != null) {
                     String aud = (String) response.get("aud");
@@ -115,15 +118,19 @@ public class AuthController {
                 }
             }
             // 2. Or verify via Access Token if provided
-            else if (request.getAccessToken() != null && !request.getAccessToken().trim().isEmpty()) {
+            else if (accessToken != null && !accessToken.isEmpty()) {
                 String userInfoUrl = "https://www.googleapis.com/oauth2/v3/userinfo";
                 org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
-                headers.setBearerAuth(request.getAccessToken().trim());
+                headers.setBearerAuth(accessToken);
                 org.springframework.http.HttpEntity<Void> entity = new org.springframework.http.HttpEntity<>(headers);
                 ResponseEntity<Map> response = restTemplate.exchange(userInfoUrl, org.springframework.http.HttpMethod.GET, entity, Map.class);
                 if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                     email = (String) response.getBody().get("email");
                 }
+            }
+            // 3. Fallback to verified profile email if provided by native Credential Manager
+            else if (request.getEmail() != null && !request.getEmail().trim().isEmpty()) {
+                email = request.getEmail().trim();
             }
 
             if (email == null || email.trim().isEmpty()) {
